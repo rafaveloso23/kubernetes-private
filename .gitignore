@@ -1,0 +1,6 @@
+aks-private-simple/.terraform.lock.hcl
+aks-private-simple/terraform.tfstate
+aks-private-simple/terraform.tfstate.backup
+aks-private-simple/.terraform/terraform.tfstate
+aks-private-simple/.terraform/providers/registry.terraform.io/hashicorp/azurerm/4.31.0/linux_amd64/LICENSE.txt
+aks-private-simple/.terraform/providers/registry.terraform.io/hashicorp/azurerm/4.31.0/linux_amd64/terraform-provider-azurerm_v4.31.0_x5

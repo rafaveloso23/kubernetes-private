@@ -108,6 +108,102 @@ resource "azurerm_role_assignment" "role_aks_vnet" {
   principal_id         = azurerm_user_assigned_identity.uai_aks.principal_id
 }
 
+resource "azurerm_key_vault" "example" {
+  name                        = "aksrvshcps"
+  location                    = azurerm_resource_group.rg_aks.location
+  resource_group_name         = azurerm_resource_group.rg_aks.name
+  enabled_for_disk_encryption = true
+  tenant_id                   = data.azurerm_client_config.current.tenant_id
+  soft_delete_retention_days  = 7
+  purge_protection_enabled    = false
+
+  sku_name = "standard"
+
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = data.azurerm_client_config.current.object_id
+
+    key_permissions = [
+      "Get",
+      "Create",
+      "Delete",
+      "GetRotationPolicy",
+      "Decrypt",
+      "Encrypt",
+      "Import",
+      "UnwrapKey",
+      "Update",
+      "Verify",
+      "Sign",
+      "WrapKey",
+      "Release",
+      "Rotate",
+      "SetRotationPolicy"
+    ]
+
+    secret_permissions = [
+      "Get",
+    ]
+
+    storage_permissions = [
+      "Get",
+    ]
+  }
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = azurerm_user_assigned_identity.uai_aks.principal_id
+
+    key_permissions = [
+      "Get",
+      "Create",
+      "Delete",
+      "GetRotationPolicy",
+      "Decrypt",
+      "Encrypt",
+      "Import",
+      "UnwrapKey",
+      "Update",
+      "Verify",
+      "Sign",
+      "WrapKey",
+      "Release",
+      "Rotate",
+      "SetRotationPolicy"
+    ]
+
+    secret_permissions = [
+      "Get",
+    ]
+
+    storage_permissions = [
+      "Get",
+    ]
+  }
+}
+resource "azurerm_key_vault_key" "generated" {
+  name         = "generated-certificate"
+  key_vault_id = azurerm_key_vault.example.id
+  key_type     = "RSA"
+  key_size     = 2048
+
+  key_opts = [
+    "decrypt",
+    "encrypt",
+    "sign",
+    "unwrapKey",
+    "verify",
+    "wrapKey",
+  ]
+
+  rotation_policy {
+    automatic {
+      time_before_expiry = "P30D"
+    }
+
+    expire_after         = "P90D"
+    notify_before_expiry = "P29D"
+  }
+}
 resource "azurerm_kubernetes_cluster" "example" {
   name                    = "k8s-private-cluster"
   location                = azurerm_resource_group.rg_aks.location
@@ -127,25 +223,31 @@ resource "azurerm_kubernetes_cluster" "example" {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.uai_aks.id]
   }
-}
 
-resource "azurerm_private_endpoint" "pvt_endpoint_aks" {
-  name                = "example-endpoint"
-  location            = azurerm_resource_group.rg_aks.location
-  resource_group_name = azurerm_resource_group.rg_aks.name
-  subnet_id           = azurerm_subnet.snet_pvt.id
-
-  private_service_connection {
-    name                           = "example-privateserviceconnection"
-    private_connection_resource_id = azurerm_kubernetes_cluster.example.id
-    subresource_names              = ["management"]
-    is_manual_connection           = false
-  }
-
-  private_dns_zone_group {
-    name                 = "example-dns-zone-group"
-    private_dns_zone_ids = [
-      azurerm_private_dns_zone.pvt_dns_aks.id,
-    ]
+  key_management_service {
+    key_vault_key_id         = azurerm_key_vault_key.generated.id
+    key_vault_network_access = "Public"
   }
 }
+data "azurerm_client_config" "current" {}
+
+# resource "azurerm_private_endpoint" "pvt_endpoint_aks" {
+#   name                = "example-endpoint"
+#   location            = azurerm_resource_group.rg_aks.location
+#   resource_group_name = azurerm_resource_group.rg_aks.name
+#   subnet_id           = azurerm_subnet.snet_pvt.id
+
+#   private_service_connection {
+#     name                           = "example-privateserviceconnection"
+#     private_connection_resource_id = azurerm_kubernetes_cluster.example.id
+#     subresource_names              = ["management"]
+#     is_manual_connection           = false
+#   }
+
+#   private_dns_zone_group {
+#     name                 = "example-dns-zone-group"
+#     private_dns_zone_ids = [
+#       azurerm_private_dns_zone.pvt_dns_aks.id,
+#     ]
+#   }
+# }
